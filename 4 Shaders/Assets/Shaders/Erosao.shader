@@ -10,10 +10,9 @@ Shader "Custom/URP_Erosao"
     }
     SubShader
     {
-        // TAGS CRUCIAIS PARA URP
         Tags { "RenderType"="Opaque" "RenderPipeline"="UniversalPipeline" "Queue"="Geometry" }
         LOD 100
-        Cull Off // Renderiza os dois lados
+        Cull Off
 
         Pass
         {
@@ -24,7 +23,6 @@ Shader "Custom/URP_Erosao"
             #pragma vertex vert
             #pragma fragment frag
 
-            // Inclui a biblioteca Core do URP
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
             struct Attributes
@@ -39,7 +37,6 @@ Shader "Custom/URP_Erosao"
                 float2 uv : TEXCOORD0;
             };
 
-            // Declaracao de variaveis no padrao URP (CBUFFER para otimizacao)
             CBUFFER_START(UnityPerMaterial)
                 float4 _MainTex_ST;
                 float _Cutoff;
@@ -47,7 +44,6 @@ Shader "Custom/URP_Erosao"
                 float4 _EdgeColor;
             CBUFFER_END
 
-            // Texturas sao declaradas fora do CBUFFER
             TEXTURE2D(_MainTex);
             SAMPLER(sampler_MainTex);
 
@@ -57,7 +53,6 @@ Shader "Custom/URP_Erosao"
             Varyings vert(Attributes input)
             {
                 Varyings output;
-                // Converte posicao do objeto para Clip Space (Padrao URP)
                 output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
                 output.uv = TRANSFORM_TEX(input.uv, _MainTex);
                 return output;
@@ -65,17 +60,12 @@ Shader "Custom/URP_Erosao"
 
             half4 frag(Varyings input) : SV_Target
             {
-                // 1. Amostra a cor base
                 half4 col = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
-                
-                // 2. Amostra o ruido
+                 
                 half noise = SAMPLE_TEXTURE2D(_NoiseTex, sampler_NoiseTex, input.uv).r;
 
-                // 3. Logica de Clip (Erosao)
                 clip(noise - _Cutoff);
 
-                // 4. Logica da Borda
-                // Se o ruido for menor que o corte + tamanho da borda, pinta com a cor da borda
                 if (noise < _Cutoff + _EdgeSize)
                 {
                     return _EdgeColor;

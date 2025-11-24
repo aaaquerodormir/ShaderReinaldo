@@ -16,14 +16,10 @@ Shader "Custom/URP_Potion"
     }
     SubShader
     {
-        // Tags para Transparencia
-        // Queue Transparent renderiza depois dos objetos opacos
         Tags { "RenderType"="Transparent" "Queue"="Transparent" "RenderPipeline"="UniversalPipeline" }
         LOD 100
         
-        // Ativa a transparencia padrao
         Blend SrcAlpha OneMinusSrcAlpha
-        // Nao escreve no Z-Buffer (comum para liquidos internos)
         ZWrite Off 
 
         Pass
@@ -46,7 +42,7 @@ Shader "Custom/URP_Potion"
                 float4 positionCS : SV_POSITION;
                 float2 uv : TEXCOORD0;
                 float3 normalWS : TEXCOORD1;
-                float3 viewDirWS : TEXCOORD3; // Direcao da camera para o Fresnel
+                float3 viewDirWS : TEXCOORD3;
             };
 
             CBUFFER_START(UnityPerMaterial)
@@ -63,22 +59,16 @@ Shader "Custom/URP_Potion"
                 Varyings output;
                 float3 pos = input.positionOS.xyz;
 
-                // 1. Movimento (Wobble)
-                // Adicionamos um movimento nas ondas usando seno e cosseno
                 float wobble = sin(_Time.y * _WobbleSpeed + pos.x * 5.0) * cos(_Time.y * _WobbleSpeed * 0.8 + pos.z * 5.0);
                 
-                // O movimento e mais forte no topo (uv.y perto de 1) e zero no fundo
                 pos.y += wobble * _WobbleAmount * input.uv.y;
 
                 output.positionCS = TransformObjectToHClip(pos);
                 output.uv = input.uv;
 
-                // 2. Dados para o Fresnel
-                // Posicao do vertice no mundo
                 float3 positionWS = TransformObjectToWorld(pos);
                 output.normalWS = TransformObjectToWorldNormal(input.normalOS);
                 
-                // Calcula o vetor que aponta do objeto para a camera
                 output.viewDirWS = GetWorldSpaceViewDir(positionWS);
 
                 return output;
@@ -86,25 +76,17 @@ Shader "Custom/URP_Potion"
 
             half4 frag(Varyings input) : SV_Target
             {
-                // 1. Gradiente Vertical
-                // Mistura a cor do fundo e do topo baseado na altura UV
                 half4 baseColor = lerp(_ColorBottom, _ColorTop, input.uv.y);
 
-                // 2. Calculo do Fresnel (A Magica)
                 float3 normal = normalize(input.normalWS);
                 float3 viewDir = normalize(input.viewDirWS);
                 
-                // Produto Escalar: 1 se olha de frente, 0 se olha para a borda
                 float NdotV = dot(normal, viewDir);
                 
-                // Invertemos para brilhar na borda e elevamos a potencia
                 float rim = pow(1.0 - saturate(NdotV), _RimPower);
 
-                // 3. Combinacao Final
-                // Adiciona a cor da borda sobre a cor base
                 half3 finalRGB = baseColor.rgb + (_RimColor.rgb * rim);
                 
-                // Garante que a borda seja visivel mesmo onde o liquido seria transparente
                 half finalAlpha = max(baseColor.a, rim * _RimColor.a);
 
                 return half4(finalRGB, finalAlpha);
